@@ -33,6 +33,7 @@ export default {
     var svg = d3
       .select("#my_dataviz")
       .append("svg")
+      .attr("id", 0)
       .attr("width", 1000)
       .attr("height", 1000);
 
@@ -41,82 +42,62 @@ export default {
     }
 
     function dragged(event, d) {
-      d3.select(this)
-        .raise()
-        /*.attr("x", (d.x = event.x))
-        .attr("y", (d.y = event.y));*/
-        .attr("transform", "translate(" + [event.x, event.y] + ")");
-    }
-
-    function draggedlilbox(event, d) {
-      d3.select(this)
-        .raise()
-        .attr("x", event.x - 100)
-        .attr("y", event.y - 100);
-      //.attr("transform", "translate(" + [event.x, event.y] + ")");
+      if (this.tagName == "g") {
+        d3.select(this)
+          .raise()
+          .attr("transform", "translate(" + [event.x, event.y] + ")");
+      } else {
+        d3.select(this).raise().attr("x", event.x).attr("y", event.y);
+      }
     }
 
     function dragended(event, d) {
       d3.select(this).attr("stroke", null);
-    }
-
-    function dragendedlilbox(event, d) {
       var reDrawn = false;
       var parent = this.parentNode;
       var containerRect = parent.childNodes[0];
       var parentRect = containerRect.getBoundingClientRect();
+      var component = this;
 
-      if (
-        event.x > parentRect.x &&
-        event.x < parentRect.x + parentRect.width &&
-        event.y > parentRect.y &&
-        event.y < parentRect.y + parentRect.height
-      ) {
-        console.log("in");
-      } else {
-        console.log("out");
-        parent.removeChild(this);
-        var groups = d3.selectAll("g");
+      if (this.getAttribute("class") != "main") {
+        if (
+          event.x > parentRect.x &&
+          event.x < parentRect.x + parentRect.width &&
+          event.y > parentRect.y &&
+          event.y < parentRect.y + parentRect.height &&
+          parent.tagName != "svg"
+        ) {
+          console.log("in his group");
+        } else {
+          console.log("out of his group");
+          parent.removeChild(this);
+          var groups = d3.selectAll("g");
 
-        groups.each(function (groups, i) {
-          var groupRect = this.getBoundingClientRect();
-          console.log(groupRect);
-          if (
-            event.x > groupRect.x &&
-            event.x < groupRect.x + groupRect.width &&
-            event.y > groupRect.y &&
-            event.y < groupRect.y + groupRect.height
-          ) {
-            var newlilbox = d3
-              .select(this)
-              .append("rect")
-              .attr("width", 200)
-              .attr("height", 200)
-              .attr("x", event.x)
-              .attr("y", event.y)
-              .attr("id", 12)
-              .attr("parentId", 1)
-              .style("stroke", "black")
-              .style("fill", "orange")
-              .call(draglilbox)
-              .on("click", click);
-            reDrawn = true;
+          groups.each(function (groups, i) {
+            var groupRect = this.getBoundingClientRect();
+            console.log(groupRect);
+            if (
+              event.x > groupRect.x &&
+              event.x < groupRect.x + groupRect.width &&
+              event.y > groupRect.y &&
+              event.y < groupRect.y + groupRect.height
+            ) {
+              console.log("in a new group");
+              var clone = component.cloneNode(true);
+              document
+                .getElementById(this.getAttribute("id"))
+                .appendChild(clone);
+              d3.select(clone).call(drag).on("click", click);
+
+              reDrawn = true;
+            }
+          });
+          if (!reDrawn) {
+            console.log("on svg");
+            var clone = component.cloneNode(true);
+            document.getElementById("0").appendChild(clone);
+            d3.select(clone).call(drag).on("click", click);
           }
-        });
-        if (!reDrawn) {
-          var newGroup = svg.append("g").call(drag).on("click", click);
-          newGroup
-            .append("rect")
-            .attr("width", 200)
-            .attr("height", 200)
-            .attr("x", event.x)
-            .attr("y", event.y)
-            .attr("id", 12)
-            .attr("parentId", 1)
-            .style("stroke", "black")
-            .style("fill", "orange");
-          //.call(draglilbox)
-          //.on("click", click);
         }
       }
     }
@@ -132,12 +113,6 @@ export default {
       .on("drag", dragged)
       .on("end", dragended);
 
-    const draglilbox = d3
-      .drag()
-      .on("start", dragstarted)
-      .on("drag", draggedlilbox)
-      .on("end", dragendedlilbox);
-
     // prepare a helper function
     var lineFunc = d3
       .line()
@@ -148,7 +123,12 @@ export default {
         return d.y;
       });
 
-    var group = svg.append("g").attr("id", 1).call(drag).on("click", click);
+    var group = svg
+      .append("g")
+      .attr("class", "main")
+      .attr("id", 1)
+      .call(drag)
+      .on("click", click);
 
     var box = group
       .append("rect")
@@ -180,7 +160,13 @@ export default {
       .attr("stroke", "black")
       .attr("fill", "red");
 
-    var lilbox = group
+    var lilgroup = group
+      .append("g")
+      .attr("id", 2)
+      .call(drag)
+      .on("click", click);
+
+    var lilbox = lilgroup
       .append("rect")
       .attr("width", 200)
       .attr("height", 200)
@@ -191,9 +177,14 @@ export default {
       .style("stroke", "black")
       .style("fill", "orange");
 
-    //group.call(drag).on("click", click);
+    var liltitle = lilgroup
+      .append("text")
+      .attr("x", 60)
+      .attr("y", 60)
+      .attr("dominant-baseline", "hanging")
+      .text("Data Base");
 
-    lilbox.call(draglilbox).on("click", click);
+    //group.call(drag).on("click", click);
   },
   methods: {},
 };
