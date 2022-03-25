@@ -1,20 +1,11 @@
 <template>
-  <!-- <q-drawer
-    v-model="drawerLeft"
-    show-if-above
-    :width="200"
-    :breakpoint="700"
-    style="background-color: white"
-  >
-    <q-item-label header> Models </q-item-label>
-    <q-scroll-area class="fit">
-      <div id="drawerContent"></div>
-    </q-scroll-area> </q-drawer
-  >-->
   <div id="my_dataviz"></div>
 </template>
 
 <script>
+import { min } from "d3";
+import { date } from "quasar";
+import * as modelBuilder from "src/store/modelBuilder";
 const d3 = require("d3");
 
 export default {
@@ -22,171 +13,449 @@ export default {
 
   data() {
     return {
-      arrowOutData: [
-        { x: 275, y: 220 },
-        { x: 320, y: 220 },
-        { x: 330, y: 230 },
-        { x: 320, y: 240 },
-        { x: 275, y: 240 },
-        { x: 275, y: 220 },
-      ],
-      arrowInData: [
-        { x: 275, y: 270 },
-        { x: 285, y: 260 },
-        { x: 330, y: 260 },
-        { x: 330, y: 280 },
-        { x: 285, y: 280 },
-        { x: 275, y: 270 },
-      ],
-      lilarrowOutData: [
-        { x: 175, y: 120 },
-        { x: 220, y: 120 },
-        { x: 230, y: 130 },
-        { x: 220, y: 140 },
-        { x: 175, y: 140 },
-        { x: 175, y: 120 },
-      ],
-      lilarrowInData: [
-        { x: 175, y: 170 },
-        { x: 185, y: 160 },
-        { x: 230, y: 160 },
-        { x: 230, y: 180 },
-        { x: 185, y: 180 },
-        { x: 175, y: 170 },
-      ],
+      colors: {
+        concrete: "bleu clair",
+        abstract: "vert clair",
+        service: "violet clair",
+      },
+
+      panel: {
+        dbServer: {
+          name: "DB Server",
+          icon: "https://img.icons8.com/external-kiranshastry-lineal-kiranshastry/64/000000/external-server-miscellaneous-kiranshastry-lineal-kiranshastry.png",
+          color: "yellow",
+          kind: "concrete",
+          requirements: [
+            {
+              name: "data source",
+              typeof: "connects to",
+            },
+            {
+              name: "data source 2",
+              typeof: "connects to",
+            },
+          ],
+          capabilities: [
+            {
+              name: "Output",
+              typeof: "connects to",
+            },
+          ],
+        },
+        db: {
+          name: "DataBase",
+          icon: "https://img.icons8.com/ios/50/000000/database.png",
+          color: "orange",
+          kind: "abstract",
+          requirements: [],
+          capabilities: [
+            {
+              name: "Output",
+              typeof: "connects to",
+            },
+          ],
+        },
+        apache: {
+          name: "Apache",
+          icon: "https://img.icons8.com/external-kiranshastry-lineal-kiranshastry/64/000000/external-server-miscellaneous-kiranshastry-lineal-kiranshastry.png",
+          color: "blue",
+          kind: "service",
+          requirements: [
+            {
+              name: "data source",
+              typeof: "connects to",
+            },
+            {
+              name: "data source 2",
+              typeof: "connects to",
+            },
+            {
+              name: "Input",
+              typeof: "connects to",
+            },
+          ],
+          capabilities: [
+            {
+              name: "Output",
+              typeof: "connects to",
+            },
+            {
+              name: "Output",
+              typeof: "connects to",
+            },
+            {
+              name: "Output",
+              typeof: "connects to",
+            },
+            {
+              name: "Output",
+              typeof: "connects to",
+            },
+          ],
+        },
+      },
+      modelArea: {
+        levels: [2.5, 2.3, 2.15, 2, 1.8, 1.65, 1.5, 1.3, 1.15, 1, 0.83, 0.65],
+        data: [],
+      },
     };
   },
   mounted() {
+    let ctx = this;
+
+    var arrowID = 0;
     //Create SVG element on the center page
     var svg = d3
       .select("#my_dataviz")
       .append("svg")
       .attr("id", "svg0")
-      .attr("width", 1000)
+      .attr("width", 2000)
       .attr("height", 1000);
 
-    //Create SVG element in the drawer
-    var modelsWorkshop = d3
-      .select("#drawerContent")
-      .append("svg")
-      .attr("id", "svg1")
-      .attr("width", 200)
-      .attr("height", 500);
-
     // Define drag and drop functions ----------------------------------------
-    function dragstarted() {
-      d3.select(this).attr("stroke", "black");
+
+    function dragstarted(event, d) {
+      let currentID = parseInt(this.getAttribute("id"));
+      var currentLevel;
+      var parent = this.parentNode;
+
+      for (let el0 of ctx.modelArea.data) {
+        if (el0.id === currentID) {
+          currentLevel = 0;
+          ctx.modelArea.data.splice(ctx.modelArea.data.indexOf(el0), 1);
+          break;
+        }
+        for (let el1 of el0.content) {
+          if (el1.id === currentID) {
+            currentLevel = 1;
+            el0.content.splice(el0.content.indexOf(el1), 1);
+            break;
+          }
+          for (let el2 of el1.content) {
+            if (el2.id === currentID) {
+              currentLevel = 2;
+              el1.content.splice(el1.content.indexOf(el2), 1);
+              break;
+            }
+            for (let el3 of el2.content) {
+              if (el3.id === currentID) {
+                currentLevel = 3;
+                el2.content.splice(el2.content.indexOf(el3), 1);
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (this.parentNode.getAttribute("id") != "svg0") {
+        function resizeContainer(child, level, removedComponent) {
+          var removedComponentH = parseFloat(
+            removedComponent.getBoundingClientRect().height
+          );
+          if (child.parentNode.tagName == "g") {
+            var currentBottomRectH = d3
+              .select(child.parentNode)
+              .select(".bottomRect")
+              .attr("height");
+            var newBottomRectH =
+              parseFloat(currentBottomRectH) -
+              removedComponentH / ctx.modelArea.levels[level];
+
+            d3.select(child.parentNode)
+              .select(".bottomRect")
+              .attr("height", newBottomRectH);
+
+            var newMainRectH =
+              parseFloat(
+                d3.select(child.parentNode).select(".mainRect").attr("height")
+              ) -
+              removedComponentH / ctx.modelArea.levels[level];
+
+            d3.select(child.parentNode)
+              .select(".mainRect")
+              .attr("height", newMainRectH);
+
+            resizeContainer(child.parentNode, level - 1, removedComponent);
+          }
+        }
+        resizeContainer(this, currentLevel, this);
+
+        parent.removeChild(this);
+        document.getElementById("svg0").appendChild(this);
+        d3.select(this).call(drag).on("click", click);
+
+        d3.select(parent)
+          .selectAll("g")
+          .attr(
+            "transform",
+            "translate(" +
+              [
+                (parent.getBoundingClientRect().width -
+                  this.getBoundingClientRect().width) /
+                  2,
+
+                d3.select(parent).select(".mainRect").attr("height") *
+                  ctx.modelArea.levels[currentLevel - 1] +
+                  parent.childNodes[1].getBoundingClientRect().height,
+              ] +
+              ")"
+          );
+      }
+      console.log(ctx.modelArea.data);
     }
 
     function dragged(event, d) {
+      var currentGroup = this;
+      var coord = d3.pointer(event);
+      var headerRect = document
+        .getElementById("header")
+        .getBoundingClientRect();
+
       if (this.tagName == "g") {
         d3.select(this)
           .raise()
-          .attr("transform", "translate(" + [event.x, event.y] + ")");
-        event.sourceEvent.stopPropagation();
-      } else {
-        d3.select(this).raise().attr("x", event.x).attr("y", event.y);
-        event.sourceEvent.stopPropagation();
+          .attr(
+            "transform",
+            "translate(" +
+              [
+                event.x -
+                  this.childNodes[0].getAttribute("x") *
+                    ctx.modelArea.levels[0],
+                event.y -
+                  this.childNodes[0].getAttribute("y") *
+                    ctx.modelArea.levels[0],
+              ] +
+              ")"
+          );
       }
 
       var groups = d3.selectAll("g");
 
       groups.each(function (groups, i) {
         var groupRect = this.childNodes[0].getBoundingClientRect();
-        //console.log(groupRect);
+
         if (
-          event.x > groupRect.x - 30 &&
-          event.x < groupRect.x + groupRect.width - 30 &&
-          event.y > groupRect.y + 10 &&
-          event.y < groupRect.y + groupRect.height + 10
+          coord[0] > groupRect.x &&
+          coord[0] < groupRect.x + groupRect.width &&
+          coord[1] > groupRect.y &&
+          coord[1] < groupRect.y + groupRect.height &&
+          currentGroup != this
         ) {
           console.log("dragover" + this.getAttribute("id"));
-          //d3.select(this.childNodes[0]).style("stroke-width", 5);
         } else {
-          /*var groupArray = d3.selectAll("g");
-          groupArray.forEach((element) => {
-            this.childNodes[0].style("stroke-width", 2);
-          });
-          */
         }
       });
     }
 
     function dragended(event, d) {
-      d3.select(this).attr("stroke", null);
-      var reDrawn = false;
-      var parent = this.parentNode;
-      var containerRect = parent.childNodes[0];
-      var parentRect = containerRect.getBoundingClientRect();
-      var component = this;
-
-      if (this.getAttribute("class") != "main") {
+      var currentGroup = this;
+      var panelObject;
+      for (const prop in ctx.panel) {
         if (
-          event.x > parentRect.x - 30 &&
-          event.x < parentRect.x + parentRect.width - 30 &&
-          event.y > parentRect.y + 10 &&
-          event.y < parentRect.y + parentRect.height + 10 &&
-          parent.tagName != "svg"
+          ctx.panel[prop].name ==
+          d3.select(this).selectAll("text")._groups[0][1].textContent
         ) {
-          console.log("in his group");
-        } else {
-          console.log("out of his group");
-          console.log(parent.getAttribute("id"));
-
-          parent.removeChild(this);
-
-          var groups = d3.selectAll("g");
-
-          groups.each(function (groups, i) {
-            var groupRect = this.childNodes[0].getBoundingClientRect();
-            //console.log(groupRect);
-            if (
-              event.x > groupRect.x - 30 &&
-              event.x < groupRect.x + groupRect.width - 30 &&
-              event.y > groupRect.y + 10 &&
-              event.y < groupRect.y + groupRect.height + 10
-            ) {
-              console.log("in a new group");
-              console.log(this.getAttribute("id"));
-
-              var clone = component.cloneNode(true);
-              d3.select(clone).attr("x", groupRect.x).attr("y", groupRect.y);
-
-              document
-                .getElementById(this.getAttribute("id"))
-                .appendChild(clone);
-              d3.select(clone).call(drag).on("click", click);
-
-              reDrawn = true;
-            }
-          });
-          if (!reDrawn) {
-            console.log("on svg");
-
-            var clone = component.cloneNode(true);
-            document.getElementById("svg0").appendChild(clone);
-            d3.select(clone).call(drag).on("click", click);
-          }
+          panelObject = ctx.panel[prop];
         }
       }
+
+      var currentObj = {
+        typeName: d3.select(this).selectAll("text")._groups[0][1].textContent,
+        name: d3.select(this).select("text")._groups[0][0].textContent,
+        class: this.getAttribute("class"),
+        id: parseInt(this.getAttribute("id")),
+        icon: d3.select(this).select(".icon").attr("xlink:href"),
+        color: this.childNodes[0].getAttribute("fill"),
+        level: 0,
+        containerHeight: 0,
+        content: [],
+        requirements: panelObject.requirements,
+        capabilities: panelObject.capabilities,
+      };
+      for (let element = 0; element < this.childNodes; element++) {
+        if (currentGroup.childNodes[element].tagName == "g") {
+          currentObj.content.push(element);
+        }
+      }
+      var coord = d3.pointer(event);
+
+      var reDrawn = false;
+      var component = this;
+      var minWidth = 350;
+      var minGroup;
+
+      var groups = d3.selectAll("g");
+      console.log(groups._groups[0]);
+
+      groups.each(function (groups, i) {
+        //For each group on the window
+        var groupRect = this.childNodes[0].getBoundingClientRect(); //Get the rect of the group
+
+        if (
+          //Test if the cursor is inside the group
+          coord[0] > groupRect.x &&
+          coord[0] < groupRect.x + groupRect.width &&
+          coord[1] > groupRect.y &&
+          coord[1] < groupRect.y + groupRect.height &&
+          this != currentGroup
+        ) {
+          if (groupRect.width < minWidth) {
+            console.log(this.getAttribute("id") + " " + groupRect.width);
+            minGroup = this;
+          }
+        }
+      });
+      if (minGroup != null && minGroup != this) {
+        console.log("in a new group" + minGroup.getAttribute("id"));
+        var minGroupRect = minGroup.getBoundingClientRect();
+
+        for (let el0 of ctx.modelArea.data) {
+          if (el0.id == parseInt(minGroup.getAttribute("id"))) {
+            currentObj.level = 1;
+
+            el0.content.push(currentObj);
+            break;
+          }
+          for (let el1 of el0.content) {
+            if (el1.id === parseInt(minGroup.getAttribute("id"))) {
+              currentObj.level = 2;
+
+              el1.content.push(currentObj);
+              break;
+            }
+            for (let el2 of el1.content) {
+              if (el2.id === parseInt(minGroup.getAttribute("id"))) {
+                currentObj.level = 3;
+
+                el2.content.push(currentObj);
+                break;
+              }
+              for (let el3 of el2.content) {
+                if (el3.id === parseInt(minGroup.getAttribute("id"))) {
+                  currentObj.level = 4;
+
+                  el3.content.push(currentObj);
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        //Clone and paste the component in his new group
+        // var clone = component.cloneNode(true);
+        var clone = modelBuilder.buildModel(currentObj, currentGroup, ctx);
+        var cloneComponent = clone._groups[0][0];
+        component.parentNode.removeChild(component);
+        document
+          .getElementById(minGroup.getAttribute("id"))
+          .appendChild(cloneComponent);
+
+        d3.select(cloneComponent)
+          .attr(
+            "transform",
+            "translate(" +
+              [
+                (minGroup.getBoundingClientRect().width -
+                  cloneComponent.getBoundingClientRect().width) /
+                  2,
+
+                d3.select(minGroup).select(".mainRect").attr("height") *
+                  ctx.modelArea.levels[currentObj.level - 1] +
+                  minGroup.childNodes[1].getBoundingClientRect().height,
+              ] +
+              ")"
+          )
+          .call(drag)
+          .on("click", click);
+
+        function resizeContainer(child, level, addedComponent) {
+          var addedComponentH = parseFloat(
+            addedComponent.getBoundingClientRect().height
+          );
+          if (child.parentNode.tagName == "g") {
+            var currentBottomRectH = d3
+              .select(child.parentNode)
+              .select(".bottomRect")
+              .attr("height");
+            var newBottomRectH =
+              parseFloat(currentBottomRectH) +
+              addedComponentH / ctx.modelArea.levels[level];
+
+            d3.select(child.parentNode)
+              .select(".bottomRect")
+              .attr("height", newBottomRectH);
+
+            var newMainRectH =
+              parseFloat(
+                d3.select(child.parentNode).select(".mainRect").attr("height")
+              ) +
+              addedComponentH / ctx.modelArea.levels[level];
+
+            d3.select(child.parentNode)
+              .select(".mainRect")
+              .attr("height", newMainRectH);
+
+            resizeContainer(child.parentNode, level - 1, addedComponent);
+          }
+        }
+        resizeContainer(cloneComponent, currentObj.level, cloneComponent);
+
+        reDrawn = true;
+      }
+
+      if (!reDrawn) {
+        console.log("on svg");
+        ctx.modelArea.data.push(currentObj);
+      }
+
+      console.log(ctx.modelArea.data);
     }
+
     //End of drag and drop functions -------------------------------------------
 
     //Click event
     function click(event, d) {
       if (event.defaultPrevented) return; // dragged
-      d3.select(this).transition().attr("fill", "black");
     }
 
     function click_model(event, d) {
       console.log("clicked");
       d3.select(this).transition().attr("fill", "black");
-      var clone = this.cloneNode(true);
-      document.getElementById("svg0").appendChild(clone);
-      d3.select(clone.childNodes[0])
-        .attr("width", clone.childNodes[0].getAttribute("width") * 2)
-        .attr("height", clone.childNodes[0].getAttribute("height") * 2);
-      d3.select(clone).attr("id", Date.now()).call(drag).on("click", click);
+      var panelObject;
+      for (const prop in ctx.panel) {
+        if (
+          ctx.panel[prop].name ==
+          d3.select(this).select("text")._groups[0][0].textContent
+        ) {
+          panelObject = ctx.panel[prop];
+        }
+      }
+      console.log(panelObject.name);
+      var currentObj = {
+        typeName: panelObject.name,
+        name: "My" + panelObject.name,
+        class: this.getAttribute("class"),
+        id: Date.now(),
+        icon: panelObject.icon,
+        color: ctx.colors[panelObject.kind],
+        level: 0,
+        containerHeight: 0,
+        content: [],
+        requirements: panelObject.requirements,
+        capabilities: panelObject.capabilities,
+      };
+      var gr = modelBuilder.buildModel(
+        currentObj,
+        document.getElementById("svg0"),
+        ctx
+      );
+      // Add the drag behavior
+      d3.select(gr._groups[0][0]).call(drag);
+      console.log(gr._groups[0][0].getBoundingClientRect());
+
+      ctx.modelArea.data.push(currentObj);
     }
 
     const drag = d3
@@ -195,189 +464,44 @@ export default {
       .on("drag", dragged)
       .on("end", dragended);
 
-    //Create some svg items
+    // Draw some svg items in the drawer -------------------------------------------------------
 
-    // Helper func to draw the arrows
-    var lineFunc = d3
-      .line()
-      .x(function (d) {
-        return d.x;
-      })
-      .y(function (d) {
-        return d.y;
-      });
+    Object.values(this.panel).forEach((element) => {
+      var drawerItem = d3
+        .select("#drawerContent")
+        .append("svg")
+        .attr("id", "svg1")
+        .attr("width", 150)
+        .attr("height", 150);
 
-    // Draw some svg items -------------------------------------------------------
+      var group = drawerItem
+        .append("g")
+        .attr("class", "container0")
+        .on("click", click_model);
 
-    var group = modelsWorkshop
-      .append("g")
-      .attr("class", "main")
-      .attr("id", "model1")
-      .attr("transform", "translate(0, 0)")
-      .on("click", click_model);
+      var box = group
+        .append("rect")
+        .attr("width", 100)
+        .attr("height", 100)
+        .style("stroke", "black")
+        .attr("fill", element.color);
 
-    var box = group
-      .append("rect")
-      .attr("width", 150)
-      .attr("height", 250)
-      .attr("x", 10)
-      .attr("y", 150)
-      .style("stroke", "black")
-      .style("fill", "yellow");
+      var title = group
+        .append("text")
+        .attr("x", 20)
+        .attr("y", 5)
+        .attr("dominant-baseline", "hanging")
+        .text(element.name);
 
-    var title = group
-      .append("text")
-      .attr("x", 50)
-      .attr("y", 155)
-      .attr("dominant-baseline", "hanging")
-      .text("DB Server");
-
-    // Add the path using this helper function
-    var arrowOut = group
-      .append("path")
-      .attr("d", lineFunc(this.arrowOutData))
-      .attr("stroke", "black")
-      .attr("fill", "blue");
-
-    // Add the path using this helper function
-    var arrowIn = group
-      .append("path")
-      .attr("d", lineFunc(this.arrowInData))
-      .attr("stroke", "black")
-      .attr("fill", "red");
-    group
-      .append("svg:image")
-      .attr("x", 30)
-      .attr("y", 180)
-      .attr("width", 50)
-      .attr("height", 50)
-      .attr(
-        "xlink:href",
-        "https://img.icons8.com/external-kiranshastry-lineal-kiranshastry/64/000000/external-server-miscellaneous-kiranshastry-lineal-kiranshastry.png"
-      );
-
-    /*var handle = group
-      .append("rect")
-      .data([
-        {
-          // Position of the rectangle
-          x: 0,
-          y: 0,
-        },
-      ])
-      .attr("class", "draghandle")
-      .attr("x", 5)
-      .attr("y", 145)
-      .attr("width", 20)
-      .attr("height", 20)
-      .style("fill", "blue")
-      .style("opacity", 1)
-      .attr("cursor", "move")
-      .call(
-        d3.drag().on("drag", function (d) {
-          console.log("yep");
-          d.x += d3.event.dx;
-          d.y += d3.event.dy;
-
-          // Move handle rect
-          d3.select(this)
-            .attr("x", function (d) {
-              return d.x;
-            })
-            .attr("y", function (d) {
-              return d.y;
-            });
-
-          // Move Group
-          d3.select("#group1").attr(
-            "transform",
-            "translate(" + [d.x, d.y] + ")"
-          );
-        })
-      );*/
-
-    var grp2 = modelsWorkshop
-      .append("g")
-      .attr("id", "model2")
-      .on("click", click_model);
-
-    grp2
-      .append("rect")
-      .attr("width", 100)
-      .attr("height", 100)
-      .attr("x", 10)
-      .attr("y", 10)
-      .style("stroke", "black")
-      .style("fill", "orange");
-
-    grp2
-      .append("text")
-      .attr("x", 30)
-      .attr("y", 20)
-      .attr("dominant-baseline", "hanging")
-      .text("Data Base");
-
-    // Add the path using this helper function
-    var arrowOut = grp2
-      .append("path")
-      .attr("d", lineFunc(this.lilarrowOutData))
-      .attr("stroke", "black")
-      .attr("fill", "blue");
-
-    // Add the path using this helper function
-    var arrowIn = grp2
-      .append("path")
-      .attr("d", lineFunc(this.lilarrowInData))
-      .attr("stroke", "black")
-      .attr("fill", "red");
-
-    grp2
-      .append("svg:image")
-      .attr("x", 30)
-      .attr("y", 50)
-      .attr("width", 40)
-      .attr("height", 40)
-      .attr("xlink:href", "https://img.icons8.com/ios/50/000000/database.png");
-
-    /*var lilhandle = grp2
-      .append("rect")
-      .data([
-        {
-          // Position of the rectangle
-          x: 0,
-          y: 0,
-        },
-      ])
-      .attr("class", "draghandle")
-      .attr("x", 5)
-      .attr("y", 5)
-      .attr("width", 20)
-      .attr("height", 20)
-      .style("fill", "blue")
-      .style("opacity", 1)
-      .attr("cursor", "move")
-      .call(
-        d3.drag().on("drag", function (d) {
-          console.log("yep");
-          d.x += d3.event.dx;
-          d.y += d3.event.dy;
-
-          // Move handle rect
-          d3.select(this)
-            .attr("x", function (d) {
-              return d.x;
-            })
-            .attr("y", function (d) {
-              return d.y;
-            });
-
-          // Move Group
-          d3.select("#model1").attr(
-            "transform",
-            "translate(" + [d.x, d.y] + ")"
-          );
-        })
-      );*/
+      group
+        .append("svg:image")
+        .attr("class", "icon")
+        .attr("x", 10)
+        .attr("y", 40)
+        .attr("width", 50)
+        .attr("height", 50)
+        .attr("xlink:href", element.icon);
+    });
 
     //----------------------------------------------------------------------------
   },

@@ -1,6 +1,6 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <q-header elevated>
+    <q-header id="header" elevated>
       <q-toolbar>
         <q-btn
           flat
@@ -15,13 +15,12 @@
       </q-toolbar>
     </q-header>
 
-    <q-drawer v-model="leftDrawerOpen" show-if-above bordered>
+    <q-drawer id="drawer" v-model="leftDrawerOpen" show-if-above bordered>
       <q-list>
         <q-item-label header> Models </q-item-label>
-        <div id="drawerContent"></div>
+        <div id="drawerContent" style="margin-left: 3ch"></div>
       </q-list>
     </q-drawer>
-    -->
 
     <q-page-container>
       <router-view />
