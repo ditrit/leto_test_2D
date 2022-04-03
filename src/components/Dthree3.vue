@@ -5,7 +5,7 @@
 <script>
 import { min } from "d3";
 import { date } from "quasar";
-import * as modelBuilder from "src/store/modelBuilder";
+import * as modelBuilder from "src/assets/drawers/modelBuilder";
 const d3 = require("d3");
 
 export default {
@@ -95,7 +95,7 @@ export default {
         },
       },
       modelArea: {
-        levels: [2.5, 2.3, 2.15, 2, 1.8, 1.65, 1.5, 1.3, 1.15, 1, 0.83, 0.65],
+        levels: [2.75, 2.5, 2.25, 2, 1.75, 1.5, 1.25, 1, 0.75, 0.5],
         data: [],
       },
     };
@@ -103,22 +103,19 @@ export default {
   mounted() {
     let ctx = this;
 
-    var arrowID = 0;
     //Create SVG element on the center page
     var svg = d3
       .select("#my_dataviz")
       .append("svg")
       .attr("id", "svg0")
-      .attr("width", 2000)
-      .attr("height", 1000);
-
+      .attr("width", 750)
+      .attr("height", 750);
     // Define drag and drop functions ----------------------------------------
-
     function dragstarted(event, d) {
       let currentID = parseInt(this.getAttribute("id"));
+      var currentModel = this;
       var currentLevel;
       var parent = this.parentNode;
-
       for (let el0 of ctx.modelArea.data) {
         if (el0.id === currentID) {
           currentLevel = 0;
@@ -147,8 +144,7 @@ export default {
           }
         }
       }
-
-      if (this.parentNode.getAttribute("id") != "svg0") {
+      if (currentModel.parentNode.getAttribute("id") != "svg0") {
         function resizeContainer(child, level, removedComponent) {
           var removedComponentH = parseFloat(
             removedComponent.getBoundingClientRect().height
@@ -161,57 +157,79 @@ export default {
             var newBottomRectH =
               parseFloat(currentBottomRectH) -
               removedComponentH / ctx.modelArea.levels[level];
-
             d3.select(child.parentNode)
               .select(".bottomRect")
               .attr("height", newBottomRectH);
-
             var newMainRectH =
               parseFloat(
                 d3.select(child.parentNode).select(".mainRect").attr("height")
               ) -
               removedComponentH / ctx.modelArea.levels[level];
-
             d3.select(child.parentNode)
               .select(".mainRect")
               .attr("height", newMainRectH);
-
             resizeContainer(child.parentNode, level - 1, removedComponent);
           }
         }
         resizeContainer(this, currentLevel, this);
+        parent.removeChild(currentModel);
+        document.getElementById("svg0").appendChild(currentModel);
+        d3.select(currentModel).call(drag).on("click", click);
+        console.log(parent.childNodes);
 
-        parent.removeChild(this);
-        document.getElementById("svg0").appendChild(this);
-        d3.select(this).call(drag).on("click", click);
+        function replaceComponents(group, level) {
+          var i = 0;
+          var height = level * 20;
+          for (const prop in group.childNodes) {
+            if (group.childNodes[prop].tagName == "g") {
+              i++;
 
-        d3.select(parent)
-          .selectAll("g")
-          .attr(
-            "transform",
-            "translate(" +
-              [
-                (parent.getBoundingClientRect().width -
-                  this.getBoundingClientRect().width) /
-                  2,
+              d3.select(group.childNodes[prop])
+                .attr(
+                  "transform",
+                  "scale(" +
+                    ctx.modelArea.levels[level] /
+                      ctx.modelArea.levels[level - 1] +
+                    ")translate(" +
+                    [
+                      (ctx.modelArea.levels[level - 1] -
+                        ctx.modelArea.levels[level]) *
+                        d3.select(group).select(".mainRect").attr("width"),
+                      d3
+                        .select(group.childNodes[prop])
+                        .select(".mainRect")
+                        .attr("y") *
+                        ctx.modelArea.levels[level - 1] +
+                        height +
+                        15 * ctx.modelArea.levels[level - 1],
+                    ] +
+                    ")"
+                )
+                .call(drag)
+                .on("click", click);
 
-                d3.select(parent).select(".mainRect").attr("height") *
-                  ctx.modelArea.levels[currentLevel - 1] +
-                  parent.childNodes[1].getBoundingClientRect().height,
-              ] +
-              ")"
-          );
+              height +=
+                group.childNodes[prop].getBoundingClientRect().height +
+                group.childNodes[prop].childNodes[1].getBoundingClientRect()
+                  .height +
+                15 * ctx.modelArea.levels[level - 1];
+            }
+          }
+          if (group.parentNode.tagName == "g") {
+            replaceComponents(group.parentNode, level - 1);
+          }
+        }
+
+        replaceComponents(parent, currentLevel);
       }
       console.log(ctx.modelArea.data);
     }
-
     function dragged(event, d) {
       var currentGroup = this;
       var coord = d3.pointer(event);
       var headerRect = document
         .getElementById("header")
         .getBoundingClientRect();
-
       if (this.tagName == "g") {
         d3.select(this)
           .raise()
@@ -229,12 +247,9 @@ export default {
               ")"
           );
       }
-
       var groups = d3.selectAll("g");
-
       groups.each(function (groups, i) {
         var groupRect = this.childNodes[0].getBoundingClientRect();
-
         if (
           coord[0] > groupRect.x &&
           coord[0] < groupRect.x + groupRect.width &&
@@ -247,7 +262,6 @@ export default {
         }
       });
     }
-
     function dragended(event, d) {
       var currentGroup = this;
       var panelObject;
@@ -259,7 +273,6 @@ export default {
           panelObject = ctx.panel[prop];
         }
       }
-
       var currentObj = {
         typeName: d3.select(this).selectAll("text")._groups[0][1].textContent,
         name: d3.select(this).select("text")._groups[0][0].textContent,
@@ -279,19 +292,15 @@ export default {
         }
       }
       var coord = d3.pointer(event);
-
       var reDrawn = false;
       var component = this;
       var minWidth = 350;
       var minGroup;
-
       var groups = d3.selectAll("g");
       console.log(groups._groups[0]);
-
       groups.each(function (groups, i) {
         //For each group on the window
         var groupRect = this.childNodes[0].getBoundingClientRect(); //Get the rect of the group
-
         if (
           //Test if the cursor is inside the group
           coord[0] > groupRect.x &&
@@ -309,32 +318,27 @@ export default {
       if (minGroup != null && minGroup != this) {
         console.log("in a new group" + minGroup.getAttribute("id"));
         var minGroupRect = minGroup.getBoundingClientRect();
-
         for (let el0 of ctx.modelArea.data) {
           if (el0.id == parseInt(minGroup.getAttribute("id"))) {
             currentObj.level = 1;
-
             el0.content.push(currentObj);
             break;
           }
           for (let el1 of el0.content) {
             if (el1.id === parseInt(minGroup.getAttribute("id"))) {
               currentObj.level = 2;
-
               el1.content.push(currentObj);
               break;
             }
             for (let el2 of el1.content) {
               if (el2.id === parseInt(minGroup.getAttribute("id"))) {
                 currentObj.level = 3;
-
                 el2.content.push(currentObj);
                 break;
               }
               for (let el3 of el2.content) {
                 if (el3.id === parseInt(minGroup.getAttribute("id"))) {
                   currentObj.level = 4;
-
                   el3.content.push(currentObj);
                   break;
                 }
@@ -342,33 +346,15 @@ export default {
             }
           }
         }
-
         //Clone and paste the component in his new group
-        // var clone = component.cloneNode(true);
-        var clone = modelBuilder.buildModel(currentObj, currentGroup, ctx);
-        var cloneComponent = clone._groups[0][0];
+        var cloneComponent = component.cloneNode(true);
+
+        //var clone = modelBuilder.buildModel(currentObj, currentGroup, ctx);
+        //var cloneComponent = clone._groups[0][0];
         component.parentNode.removeChild(component);
         document
           .getElementById(minGroup.getAttribute("id"))
           .appendChild(cloneComponent);
-
-        d3.select(cloneComponent)
-          .attr(
-            "transform",
-            "translate(" +
-              [
-                (minGroup.getBoundingClientRect().width -
-                  cloneComponent.getBoundingClientRect().width) /
-                  2,
-
-                d3.select(minGroup).select(".mainRect").attr("height") *
-                  ctx.modelArea.levels[currentObj.level - 1] +
-                  minGroup.childNodes[1].getBoundingClientRect().height,
-              ] +
-              ")"
-          )
-          .call(drag)
-          .on("click", click);
 
         function resizeContainer(child, level, addedComponent) {
           var addedComponentH = parseFloat(
@@ -382,44 +368,80 @@ export default {
             var newBottomRectH =
               parseFloat(currentBottomRectH) +
               addedComponentH / ctx.modelArea.levels[level];
-
             d3.select(child.parentNode)
               .select(".bottomRect")
               .attr("height", newBottomRectH);
-
             var newMainRectH =
               parseFloat(
                 d3.select(child.parentNode).select(".mainRect").attr("height")
               ) +
               addedComponentH / ctx.modelArea.levels[level];
-
             d3.select(child.parentNode)
               .select(".mainRect")
               .attr("height", newMainRectH);
-
             resizeContainer(child.parentNode, level - 1, addedComponent);
           }
         }
         resizeContainer(cloneComponent, currentObj.level, cloneComponent);
 
+        function replaceComponents(group, level) {
+          var i = 0;
+          var height = level * 20;
+          for (const prop in group.childNodes) {
+            if (group.childNodes[prop].tagName == "g") {
+              i++;
+
+              d3.select(group.childNodes[prop])
+                .attr(
+                  "transform",
+                  "scale(" +
+                    ctx.modelArea.levels[level] /
+                      ctx.modelArea.levels[level - 1] +
+                    ")translate(" +
+                    [
+                      (ctx.modelArea.levels[level - 1] -
+                        ctx.modelArea.levels[level]) *
+                        d3.select(group).select(".mainRect").attr("width"),
+                      d3
+                        .select(group.childNodes[prop])
+                        .select(".mainRect")
+                        .attr("y") *
+                        ctx.modelArea.levels[level - 1] +
+                        height +
+                        15 * ctx.modelArea.levels[level - 1],
+                    ] +
+                    ")"
+                )
+                .call(drag)
+                .on("click", click);
+
+              height +=
+                group.childNodes[prop].getBoundingClientRect().height +
+                group.childNodes[prop].childNodes[1].getBoundingClientRect()
+                  .height +
+                15 * ctx.modelArea.levels[level];
+            }
+          }
+          if (group.parentNode.tagName == "g") {
+            replaceComponents(group.parentNode, level - 1);
+          }
+        }
+
+        replaceComponents(minGroup, currentObj.level);
+
         reDrawn = true;
       }
-
       if (!reDrawn) {
         console.log("on svg");
         ctx.modelArea.data.push(currentObj);
       }
-
       console.log(ctx.modelArea.data);
     }
-
     //End of drag and drop functions -------------------------------------------
-
     //Click event
     function click(event, d) {
       if (event.defaultPrevented) return; // dragged
     }
-
     function click_model(event, d) {
       console.log("clicked");
       d3.select(this).transition().attr("fill", "black");
@@ -454,18 +476,14 @@ export default {
       // Add the drag behavior
       d3.select(gr._groups[0][0]).call(drag);
       console.log(gr._groups[0][0].getBoundingClientRect());
-
       ctx.modelArea.data.push(currentObj);
     }
-
     const drag = d3
       .drag()
       .on("start", dragstarted)
       .on("drag", dragged)
       .on("end", dragended);
-
     // Draw some svg items in the drawer -------------------------------------------------------
-
     Object.values(this.panel).forEach((element) => {
       var drawerItem = d3
         .select("#drawerContent")
@@ -473,26 +491,22 @@ export default {
         .attr("id", "svg1")
         .attr("width", 150)
         .attr("height", 150);
-
       var group = drawerItem
         .append("g")
         .attr("class", "container0")
         .on("click", click_model);
-
       var box = group
         .append("rect")
         .attr("width", 100)
         .attr("height", 100)
         .style("stroke", "black")
         .attr("fill", element.color);
-
       var title = group
         .append("text")
         .attr("x", 20)
         .attr("y", 5)
         .attr("dominant-baseline", "hanging")
         .text(element.name);
-
       group
         .append("svg:image")
         .attr("class", "icon")
@@ -502,7 +516,6 @@ export default {
         .attr("height", 50)
         .attr("xlink:href", element.icon);
     });
-
     //----------------------------------------------------------------------------
   },
   methods: {},
