@@ -1,5 +1,7 @@
 <template>
-  <button v-on:click="hided33 = !hided33">Click me to hide/show D3.3</button>
+  <button id="hideD33" v-on:click="hided33 = !hided33">
+    Click me to hide/show D3.3
+  </button>
   <button v-on:click="hided32 = !hided32">Click me to hide/show D3.2</button>
   <button v-on:click="hided3 = !hided3">Click me to hide/show D3.1</button>
   <button v-on:click="hideCyto = !hideCyto">Click me to hide/show Cyto</button>
