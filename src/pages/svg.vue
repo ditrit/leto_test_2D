@@ -18,6 +18,7 @@ export default defineComponent({
     const username = computed(() => Parse.User.current());
 
     let data = {
+      id: "obj1",
       primary_color: "#d3eaf2",
       secondary_color: "#bae0ed",
       width: 100,
@@ -28,6 +29,7 @@ export default defineComponent({
     };
 
     let data2 = {
+      id: "obj2",
       primary_color: "#95ff00",
       secondary_color: "#82cc18",
       width: 200,
@@ -70,9 +72,26 @@ export default defineComponent({
         const svgTxt2 = instanciate(svgVars, data2);
         const svgDom2 = domParser.parseFromString(svgTxt2, "image/svg+xml");
 
-        d3.select("#svgTest").node().append(svgDom.documentElement);
+        /*d3.select("#svgTest").node().append(svgDom.documentElement);
+        console.log(svgDom.documentElement);
+        d3.select("#obj1").attr(
+          "transform",
+          "scale(" + 0.5 + ")translate(" + [200, 50] + ")"
+        );*/
+
         d3.select("#svgTest2").node().append(svgDom2.documentElement);
+        console.log(document.getElementById("obj2"));
+        var svg = d3.select("#svgTest2").append("svg").attr("id", "svg0");
+        document
+          .getElementById("svg0")
+          .appendChild(document.getElementById("obj2"));
       }
+      console.log(document.getElementById("svg0"));
+      console.log(document.getElementById("svgTest2"));
+      console.log(document.getElementById("1"));
+      document
+        .getElementById("svgTest2")
+        .removeChild(document.getElementById("1"));
     });
 
     return {
